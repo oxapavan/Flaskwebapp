@@ -10,19 +10,22 @@ flag_chars = list(flag)
 @app.route("/")
 def start_redirect():
     """Initiates the redirection loop."""
+    session.clear()  # Ensure session starts fresh
     session["progress"] = 0
+    session.modified = True  # Ensure session updates persist
     return redirect(f"/{flag_chars[0]}", code=302)
 
 @app.route("/<char>")
 def redirect_loop(char):
     """Handles redirection through the flag characters one by one."""
-    if "progress" not in session:
-        return redirect("/")  # Reset progress if accessed incorrectly
+    if "progress" not in session or not isinstance(session["progress"], int):
+        return redirect("/")  # Reset progress if session is missing or invalid
 
     expected_char = flag_chars[session["progress"]]
     
     if char == expected_char:
         session["progress"] += 1
+        session.modified = True  # Ensure session updates persist
         
         if session["progress"] >= len(flag_chars):
             return "The page isn’t redirecting properly", 400  # Simulating infinite redirection issue
