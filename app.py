@@ -1,42 +1,45 @@
-from flask import Flask, redirect, request, make_response
+from flask import Flask, redirect, request, session, render_template
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"  # Required for session tracking
 
 # Define the flag and split it into characters
-flag = "WHH{Ke3P-mov1ng}"  # Your challenge flag
+flag = "RITSEC{Redirection_Fun}"  # Change to match the new challenge theme
 flag_chars = list(flag)
 
-@app.route("/")
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Serves a login page before redirection starts."""
+    if request.method == "POST":
+        return redirect("/start")  # Guide users towards the redirection challenge
+    return render_template("login.html")
+
+@app.route("/start")
 def start_redirect():
-    """Initiates the redirection loop using cookies."""
-    resp = make_response(redirect(f"/{flag_chars[0]}", code=302))
-    resp.set_cookie("progress", "0")  # Start from the first character
-    return resp
+    """Initiates the redirection loop."""
+    session.clear()  # Ensure session starts fresh
+    session["progress"] = 0
+    session.modified = True  # Ensure session updates persist
+    return redirect(f"/{flag_chars[0]}", code=302)
 
 @app.route("/<char>")
 def redirect_loop(char):
-    """Handles redirection through the flag characters using cookies."""
-    progress = request.cookies.get("progress", "0")  # Retrieve progress from cookies
+    """Handles redirection through the flag characters one by one."""
+    if "progress" not in session or not isinstance(session["progress"], int):
+        return redirect("/start")  # Reset progress if session is missing or invalid
 
-    try:
-        progress = int(progress)
-    except ValueError:
-        return redirect("/")  # Reset if cookie is corrupted
-
-    if progress >= len(flag_chars):
-        return "The page isn’t redirecting properly", 400  # Simulate infinite loop detection
-
-    expected_char = flag_chars[progress]
-
+    expected_char = flag_chars[session["progress"]]
+    
     if char == expected_char:
-        progress += 1  # Move to the next character
-        resp = make_response(
-            redirect(f"/{flag_chars[progress]}", code=302) if progress < len(flag_chars) else "Done"
-        )
-        resp.set_cookie("progress", str(progress))  # Store updated progress in the cookie
-        return resp
-
-    return redirect("/")  # Restart if incorrect
+        session["progress"] += 1
+        session.modified = True  # Ensure session updates persist
+        
+        if session["progress"] >= len(flag_chars):
+            return f"Congratulations! Your flag is: {flag}"  # Display the flag instead of error
+        
+        return redirect(f"/{flag_chars[session['progress']]}", code=302)  # Redirect to next character
+    
+    return redirect("/start")  # Restart if incorrect
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
